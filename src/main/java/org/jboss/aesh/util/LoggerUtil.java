@@ -20,15 +20,13 @@
 package org.jboss.aesh.util;
 
 import org.jboss.aesh.console.Config;
+import org.jboss.aesh.console.settings.Settings;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.FileHandler;
-import java.util.logging.Handler;
-import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
-import java.util.logging.StreamHandler;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.logging.*;
 
 /**
  * butt ugly logger util, but its simple and gets the job done (hopefully not too dangerous)
@@ -39,54 +37,62 @@ import java.util.logging.StreamHandler;
  */
 public class LoggerUtil {
 
-    private static Handler logHandler;
-
-    private static void createLogHandler(String log) {
-        try {
-            File logFile = new File(log);
-            createLogHandlerToFile(logFile);
-
-            if(logFile.isDirectory()) {
-                logFile = new File(logFile.getAbsolutePath()+ Config.getPathSeparator()+"aesh.log");
-            }
-            createLogHandler(new FileHandler(logFile.getAbsolutePath()));
-        }
-        catch (IOException e) {
-            createLogHandler(new ConsoleHandler());
-        }
-
-    }
-
-    private static void createLogHandlerToFile(File logFile) {
-        if(isCreateANewHandler(logFile)) {
-            createLogHandler(new ConsoleHandler());
-            return;
-        }
-    }
-
-    private static boolean isCreateANewHandler(File logFile) {
-        return logFile.getParentFile() != null && !logFile.getParentFile().isDirectory() && !logFile.getParentFile().mkdirs();
-    }
-
-    private static void createLogHandler(StreamHandler handler) {
-        logHandler = handler;
-        logHandler.setFormatter(new SimpleFormatter());
-    }
+    private static Settings settings = null;
 
     public static synchronized Logger getLogger(String name) {
-        if(logHandler == null) {
-            createLogHandler(Config.getTmpDir()+Config.getPathSeparator()+"aesh.log");
-        }
+        if (settings == null)
+            removeAllLogHandlers(LogManager.getLogManager().getLogger(""));
 
-        if(logHandler == null) {
-            return Logger.getLogger(name);
-        }
-
-        Logger log =  Logger.getLogger(name);
-        log.setUseParentHandlers(false);
-        log.addHandler(logHandler);
-
-        return log;
+        return Logger.getLogger(name);
     }
 
+    public static synchronized void updateLogSettings(Settings newSettings) {
+        updateLogSettings(newSettings, "aesh.log");
+    }
+
+    private static void updateLogSettings(Settings newSettings, String logName) {
+        settings = newSettings;
+        if (settings.isLogging()) {
+            Handler logHandler;
+            final String logPath = settings.getLogFile() == null
+                    ? Config.getTmpDir() + Config.getPathSeparator() + logName
+                    : settings.getLogFile();
+
+            File logFile = new File(logPath);
+            // If parentFile exists & its not a dir and path of parent can be created, then proceed to create FileHandler
+            if (logFile.getParentFile() != null && (logFile.getParentFile().isDirectory() || logFile.getParentFile().mkdir())) {
+                // If specified log file is a directory, then create log file within that dir
+                if (logFile.isDirectory())
+                    logFile = new File(logFile.getAbsolutePath() + Config.getPathSeparator() + logName);
+
+                try {
+                    logHandler = new FileHandler(logFile.getAbsolutePath());
+                } catch (IOException e) {
+                    logHandler = new ConsoleHandler();
+                }
+            } else {
+                logHandler = new ConsoleHandler();
+            }
+            logHandler.setFormatter(new SimpleFormatter());
+
+            // Apply to base log as some log instances may not have been created. Hence, when they are created they will have this logHandler
+            Logger log = LogManager.getLogManager().getLogger("");
+            log.addHandler(logHandler);
+            updateAllLogHandlers(logHandler);
+        }
+    }
+
+    private static void updateAllLogHandlers(Handler logHandler) {
+        for(Enumeration<String> loggerEnum = LogManager.getLogManager().getLoggerNames(); loggerEnum.hasMoreElements();){
+            String logName = loggerEnum.nextElement();
+            Logger log = getLogger(logName);
+            if (log != null)
+                log.addHandler(logHandler);
+        }
+    }
+
+    private static void removeAllLogHandlers(Logger log) {
+        for (Handler h : log.getHandlers())
+            log.removeHandler(h);
+    }
 }

@@ -150,6 +150,9 @@ public class Console {
         if(readerService != null && !readerService.isShutdown()) {
             return;
         }
+
+        LoggerUtil.updateLogSettings(settings);
+
         if(settings.isLogging())
             LOGGER.info("RESET");
 
