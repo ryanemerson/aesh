@@ -20,6 +20,7 @@
 package org.jboss.aesh.console.settings;
 
 import org.jboss.aesh.console.AeshContext;
+import org.jboss.aesh.console.Console;
 import org.jboss.aesh.console.helper.InterruptHook;
 import org.jboss.aesh.edit.Mode;
 import org.jboss.aesh.io.Resource;
@@ -28,11 +29,18 @@ import org.jboss.aesh.terminal.Terminal;
 import java.io.File;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.util.logging.Handler;
+import java.util.logging.LogManager;
+import java.util.logging.Logger;
 
 /**
  * @author <a href="mailto:stale.pedersen@jboss.org">Ståle W. Pedersen</a>
  */
 public class SettingsBuilder {
+
+    static {
+        SettingsBuilder.removeDefaultLogHandlers();
+    }
 
     SettingsImpl settings;
 
@@ -211,5 +219,16 @@ public class SettingsBuilder {
 
     public Settings create() {
         return settings;
+    }
+
+    // Hack to remove all default loaders to prevent logging output before the Console is created.
+    public static int[] removeDefaultLogHandlers() {
+        // Prevents initialised logHandlers being removed if this method is called multiple times!
+        if (LogManager.getLogManager().getLogger(Console.class.getName()) != null) {
+            Logger log = LogManager.getLogManager().getLogger("");
+            for (Handler h : log.getHandlers())
+                log.removeHandler(h);
+        }
+        return new int[]{-1};
     }
 }

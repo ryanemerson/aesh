@@ -20,6 +20,7 @@
 package org.jboss.aesh.terminal;
 
 import org.jboss.aesh.console.Config;
+import org.jboss.aesh.console.settings.SettingsBuilder;
 
 /**
  * ANSCII enum key chart
@@ -28,6 +29,8 @@ import org.jboss.aesh.console.Config;
  */
 public enum Key {
 
+    HACK_TO_INIT_LOGS(SettingsBuilder.removeDefaultLogHandlers()),
+    // ^^^^ HACK, Ensures that default log handlers are removed before the initLogs method is called in Console.
     UNKNOWN(new int[]{0}),
     CTRL_A(new int[]{1}),
     CTRL_B(new int[]{2}),
